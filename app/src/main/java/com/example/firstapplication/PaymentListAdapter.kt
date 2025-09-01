@@ -29,8 +29,8 @@ class PaymentListAdapter : ListAdapter<CardPayment, PaymentListAdapter.PaymentVi
 
         fun bind(payment: CardPayment) {
             cardNameItemView.text = payment.cardName
-            amountItemView.text = String.format("%,.0f원", payment.amount)
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            amountItemView.text = String.format("%,d원", payment.amount.toInt())
+            val sdf = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
             dateItemView.text = sdf.format(payment.paymentDate)
         }
 

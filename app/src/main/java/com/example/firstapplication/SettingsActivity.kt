@@ -68,6 +68,10 @@ class SettingsActivity : AppCompatActivity() {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             createDocumentLauncher.launch("payment_data_$timestamp.csv")
         }
+
+        binding.buttonBillingCycles.setOnClickListener {
+            startActivity(Intent(this, BillingCycleActivity::class.java))
+        }
     }
 
     private fun observeData() {

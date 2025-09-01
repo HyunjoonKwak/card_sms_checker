@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [CardPayment::class, SmsMessage::class, SmsPattern::class, PaymentCategory::class], version = 4, exportSchema = false)
+@Database(entities = [CardPayment::class, SmsMessage::class, SmsPattern::class, PaymentCategory::class, MonthlySummary::class, CardBillingCycle::class], version = 6, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
@@ -14,6 +14,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun smsDao(): SmsDao
     abstract fun smsPatternDao(): SmsPatternDao
     abstract fun paymentCategoryDao(): PaymentCategoryDao
+    abstract fun monthlySummaryDao(): MonthlySummaryDao
+    abstract fun cardBillingCycleDao(): CardBillingCycleDao
 
     companion object {
         @Volatile

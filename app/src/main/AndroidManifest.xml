@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application
         android:name=".PaymentsApplication"
@@ -31,6 +33,12 @@
             android:exported="false"
             android:theme="@style/Theme.FirstApplication"
             android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".BillingCycleActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FirstApplication"
+            android:parentActivityName=".SettingsActivity" />
 
         <receiver
             android:name=".SmsReceiver"

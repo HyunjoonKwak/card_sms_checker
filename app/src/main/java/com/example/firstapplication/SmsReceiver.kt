@@ -46,13 +46,13 @@ class SmsReceiver : BroadcastReceiver() {
                 }
 
                 // Enhanced parsing using SmsParsingService
-                if (msgBody.contains("카드") && (msgBody.contains("결제") || msgBody.contains("승인") || msgBody.contains("사용"))) {
+                if (msgBody.contains("카드")) {
                     val parsingService = SmsParsingService(database)
                     parsingService.parsePaymentSms(msgBody) { result ->
                         if (result != null) {
                             Log.d("SmsReceiver", "Payment parsed successfully: ${result.cardName} - ${result.amount}원 (confidence: ${result.confidence})")
                         } else {
-                            Log.w("SmsReceiver", "Failed to parse payment from SMS: $msgBody")
+                            Log.d("SmsReceiver", "SMS processed (may be monthly summary or non-payment): $msgBody")
                         }
                     }
                 }

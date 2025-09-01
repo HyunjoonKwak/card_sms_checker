@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 class PaymentsApplication : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
-    val repository by lazy { PaymentRepository(database.paymentDao()) }
+    val repository by lazy { PaymentRepository(database.paymentDao(), database.cardBillingCycleDao()) }
     val smsRepository by lazy { SmsRepository(database.smsDao()) }
     
     private val applicationScope = CoroutineScope(Dispatchers.IO)

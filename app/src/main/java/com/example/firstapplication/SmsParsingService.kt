@@ -4,8 +4,10 @@ import android.util.Log
 import com.example.firstapplication.db.AppDatabase
 import com.example.firstapplication.db.CardPayment
 import com.example.firstapplication.db.DefaultCategories
+import com.example.firstapplication.db.MonthlySummary
 import com.example.firstapplication.db.PaymentCategory
 import com.example.firstapplication.db.SmsPattern
+import java.text.SimpleDateFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,6 +27,13 @@ class SmsParsingService(private val database: AppDatabase) {
     fun parsePaymentSms(messageBody: String, onResult: (ParsedPayment?) -> Unit) {
         scope.launch {
             try {
+                // 먼저 월별 총합 SMS인지 확인
+                if (isMonthlyTotalSms(messageBody)) {
+                    parseMonthlySummary(messageBody)
+                    onResult(null) // 월별 총합은 개별 결제가 아니므로 null 반환
+                    return@launch
+                }
+                
                 val patterns = database.smsPatternDao().getActivePatterns()
                 val result = parseWithPatterns(messageBody, patterns)
                 
@@ -169,6 +178,78 @@ class SmsParsingService(private val database: AppDatabase) {
         }
         
         return null
+    }
+
+    private fun isMonthlyTotalSms(messageBody: String): Boolean {
+        val monthlyKeywords = listOf(
+            "월 이용금액", "월 사용금액", "월간 이용액", "이번달 총", "당월 이용액",
+            "월별 사용내역", "이용금액 안내", "월 결제금액", "총 이용금액"
+        )
+        
+        return monthlyKeywords.any { messageBody.contains(it) } &&
+               (messageBody.contains("원") || messageBody.contains("만원"))
+    }
+
+    private suspend fun parseMonthlySummary(messageBody: String) {
+        try {
+            // 카드사명 추출
+            val cardPatterns = listOf(
+                "\\[([^\\]]+카드)\\]",
+                "([가-힣]+카드)",
+                "\\[([^\\]]+)\\].*카드"
+            )
+            
+            var cardName = "알 수 없는 카드"
+            for (pattern in cardPatterns) {
+                val matcher = Pattern.compile(pattern).matcher(messageBody)
+                if (matcher.find()) {
+                    cardName = matcher.group(1) ?: cardName
+                    break
+                }
+            }
+            
+            // 금액 추출 (다양한 패턴 지원)
+            val amountPatterns = listOf(
+                "([0-9,]+)원",
+                "([0-9,]+)만원",
+                "총 ([0-9,]+)원",
+                "금액 ([0-9,]+)원"
+            )
+            
+            var totalAmount = 0.0
+            for (pattern in amountPatterns) {
+                val matcher = Pattern.compile(pattern).matcher(messageBody)
+                if (matcher.find()) {
+                    val amountStr = matcher.group(1)?.replace(",", "") ?: "0"
+                    totalAmount = amountStr.toDoubleOrNull() ?: 0.0
+                    
+                    // "만원" 단위면 10000을 곱함
+                    if (pattern.contains("만원")) {
+                        totalAmount *= 10000
+                    }
+                    break
+                }
+            }
+            
+            if (totalAmount > 0) {
+                val currentDate = Date()
+                val monthFormat = SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault())
+                val summaryMonth = monthFormat.format(currentDate)
+                
+                val summary = MonthlySummary(
+                    cardName = cardName,
+                    totalAmount = totalAmount,
+                    summaryMonth = summaryMonth,
+                    receivedDate = currentDate,
+                    originalMessage = messageBody
+                )
+                
+                database.monthlySummaryDao().insert(summary)
+                Log.d("SmsParsingService", "Monthly summary saved: $cardName - ${totalAmount}원 for $summaryMonth")
+            }
+        } catch (e: Exception) {
+            Log.e("SmsParsingService", "Failed to parse monthly summary", e)
+        }
     }
 
     suspend fun initializeDefaultCategories() {

@@ -13,6 +13,10 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.firstapplication.databinding.FragmentFirstBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -21,6 +25,7 @@ class FirstFragment : Fragment() {
 
     private var _binding: FragmentFirstBinding? = null
     private val binding get() = _binding!!
+    private lateinit var billingCardSummaryAdapter: BillingCardSummaryAdapter
 
     private val paymentViewModel: PaymentViewModel by viewModels {
         PaymentViewModelFactory((activity?.application as PaymentsApplication).repository)
@@ -40,6 +45,10 @@ class FirstFragment : Fragment() {
         val adapter = PaymentListAdapter()
         binding.recyclerviewPayments.adapter = adapter
         binding.recyclerviewPayments.layoutManager = LinearLayoutManager(context)
+        
+        billingCardSummaryAdapter = BillingCardSummaryAdapter()
+        binding.recyclerviewCardSummary.adapter = billingCardSummaryAdapter
+        binding.recyclerviewCardSummary.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
 
         paymentViewModel.allPayments.observe(viewLifecycleOwner) { payments ->
             payments?.let {
@@ -59,8 +68,14 @@ class FirstFragment : Fragment() {
                     yearFormat.format(payment.paymentDate) == currentYear
                 }.sumOf { payment -> payment.amount }
 
-                binding.textviewMonthTotal.text = String.format("이번 달 총 결제 예정액: %,.0f원", monthTotal)
-                binding.textviewYearTotal.text = String.format("올해 총 결제 예정액: %,.0f원", yearTotal)
+                val currentMonthText = SimpleDateFormat("M월", Locale.KOREA).format(calendar.time)
+                val currentYearText = SimpleDateFormat("yyyy년", Locale.KOREA).format(calendar.time)
+                
+                binding.textviewMonthTotal.text = String.format("%s 총 결제: %,d원", currentMonthText, monthTotal.toInt())
+                binding.textviewYearTotal.text = String.format("%s 총 결제: %,d원", currentYearText, yearTotal.toInt())
+                
+                // 카드별 현재 결제 사이클 기준 요약 데이터 로드
+                loadBillingCycleSummaries()
             }
         }
 
@@ -69,6 +84,27 @@ class FirstFragment : Fragment() {
         }
 
         requestSmsPermission()
+    }
+
+    private fun loadBillingCycleSummaries() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val repository = (activity?.application as PaymentsApplication).repository
+            val billingCycles = repository.allBillingCycles.value ?: emptyList()
+            val summaries = mutableListOf<com.example.firstapplication.db.CardBillingSummary>()
+            
+            for (cycle in billingCycles.filter { it.isActive }) {
+                val period = BillingCycleCalculator.getCurrentBillingPeriod(cycle)
+                val cycleSummaries = repository.getCardSummaryByBillingCycle(
+                    period.startDate.time,
+                    period.endDate.time
+                )
+                summaries.addAll(cycleSummaries)
+            }
+            
+            withContext(Dispatchers.Main) {
+                billingCardSummaryAdapter.submitList(summaries.sortedByDescending { it.totalAmount })
+            }
+        }
     }
 
     private fun requestSmsPermission() {
