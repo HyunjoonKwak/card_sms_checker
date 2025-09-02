@@ -7,7 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.firstapplication.databinding.ActivityMainBinding
 import com.example.firstapplication.db.SmsMessage
@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
 
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
@@ -27,9 +27,13 @@ class MainActivity : FragmentActivity() {
         setContentView(binding.root)
         
         // 첫 실행 시 기존 SMS 파싱
+        Log.d("MainActivity", "First run check: ${isFirstRun()}")
         if (isFirstRun()) {
+            Log.d("MainActivity", "Starting first run SMS parsing")
             parseExistingSmsMessages()
             markFirstRunCompleted()
+        } else {
+            Log.d("MainActivity", "Not first run, skipping SMS parsing")
         }
     }
 
@@ -121,5 +125,14 @@ class MainActivity : FragmentActivity() {
         }
         
         return smsMessages
+    }
+
+    fun refreshFirstFragment() {
+        // FragmentContainerView에서 FirstFragment를 찾아서 데이터를 새로고침
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)
+        val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
+        if (currentFragment is FirstFragment) {
+            currentFragment.refreshData()
+        }
     }
 }

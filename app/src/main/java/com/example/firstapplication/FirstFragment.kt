@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import android.app.Activity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -17,6 +18,7 @@ import com.example.firstapplication.databinding.FragmentFirstBinding
 import com.example.firstapplication.db.CardPayment
 import android.content.Intent
 import android.widget.Toast
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,6 +33,16 @@ class FirstFragment : Fragment() {
     private var _binding: FragmentFirstBinding? = null
     private val binding get() = _binding!!
     private lateinit var billingCardSummaryAdapter: BillingCardSummaryAdapter
+    
+    // Settings Activity 런처
+    private val settingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // 데이터가 초기화되었으므로 UI 새로고침
+            refreshData()
+        }
+    }
     
     // 페이지네이션 관련 변수들
     private val pageSize = 10
@@ -101,7 +113,7 @@ class FirstFragment : Fragment() {
 
         binding.buttonSettings.setOnClickListener {
             val intent = Intent(activity, SettingsActivity::class.java)
-            startActivity(intent)
+            settingsLauncher.launch(intent)
         }
         
         binding.buttonLoadMorePayments.setOnClickListener {
@@ -109,6 +121,29 @@ class FirstFragment : Fragment() {
         }
 
         requestSmsPermission()
+    }
+
+    fun refreshData() {
+        Log.d("FirstFragment", "refreshData() called - clearing UI data and reloading from database")
+        // 데이터 초기화 후 UI 새로고침
+        currentPayments.clear()
+        currentPage = 0
+        hasMoreData = true
+        
+        // 어댑터에 빈 리스트를 먼저 제출
+        adapter.submitList(emptyList())
+        
+        // 결제 내역 새로고침
+        loadCurrentMonthPayments(loadMore = false)
+        
+        // 월별, 연간 총계 새로고침
+        loadPaymentSummary()
+        
+        // 카드 요약 정보 새로고침
+        if (binding.cardviewCardSummary.visibility == View.VISIBLE) {
+            loadBillingCycleSummaries()
+        }
+        Log.d("FirstFragment", "refreshData() completed")
     }
 
     private fun loadBillingCycleSummaries() {
@@ -170,6 +205,11 @@ class FirstFragment : Fragment() {
                 
                 val offset = currentPage * pageSize
                 val newPayments = repository.getCurrentMonthPayments(yearMonth, pageSize, offset)
+                
+                Log.d("FirstFragment", "loadCurrentMonthPayments: yearMonth=$yearMonth, pageSize=$pageSize, offset=$offset, found ${newPayments.size} payments")
+                newPayments.forEach { payment ->
+                    Log.d("FirstFragment", "Payment: ${payment.cardName} - ${payment.amount}원 (${payment.merchant})")
+                }
                 
                 if (newPayments.isNotEmpty()) {
                     currentPayments.addAll(newPayments)

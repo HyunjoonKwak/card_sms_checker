@@ -320,6 +320,21 @@
         android:text="결제 내역과 SMS 기록을 CSV 파일로 내보냅니다."
         android:textSize="14sp"
         android:textColor="@android:color/darker_gray"
+        app:layout_constraintBottom_toTopOf="@id/button_reparse_sms"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/button_reparse_sms"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="🔄 데이터 초기화 및 SMS 파싱"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:padding="12dp"
+        android:minHeight="48dp"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginBottom="16dp"
         app:layout_constraintBottom_toTopOf="@id/button_export_data"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
