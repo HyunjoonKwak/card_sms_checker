@@ -14,6 +14,20 @@ interface PaymentDao {
     @Query("SELECT * FROM card_payments ORDER BY paymentDate DESC")
     fun getAllPayments(): LiveData<List<CardPayment>>
 
+    @Query("""
+        SELECT * FROM card_payments 
+        WHERE strftime('%Y-%m', paymentDate / 1000, 'unixepoch') = :yearMonth
+        ORDER BY paymentDate DESC 
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getCurrentMonthPayments(yearMonth: String, limit: Int, offset: Int): List<CardPayment>
+    
+    @Query("""
+        SELECT COUNT(*) FROM card_payments 
+        WHERE strftime('%Y-%m', paymentDate / 1000, 'unixepoch') = :yearMonth
+    """)
+    suspend fun getCurrentMonthPaymentCount(yearMonth: String): Int
+
     @Query("SELECT * FROM card_payments WHERE categoryId = :categoryId ORDER BY paymentDate DESC")
     fun getPaymentsByCategory(categoryId: Int): LiveData<List<CardPayment>>
 

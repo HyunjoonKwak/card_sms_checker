@@ -1,20 +1,23 @@
 package com.example.firstapplication
 
-import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
+import android.database.Cursor
+import android.net.Uri
 import android.os.Bundle
-import com.google.android.material.snackbar.Snackbar
-import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.navigateUp
-import androidx.navigation.ui.setupActionBarWithNavController
-import android.view.Menu
-import android.view.MenuItem
+import android.util.Log
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.firstapplication.databinding.ActivityMainBinding
+import com.example.firstapplication.db.SmsMessage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Date
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : FragmentActivity() {
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,46 +25,101 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        // 첫 실행 시 기존 SMS 파싱
+        if (isFirstRun()) {
+            parseExistingSmsMessages()
+            markFirstRunCompleted()
+        }
+    }
 
-        setSupportActionBar(binding.toolbar)
+    private fun isFirstRun(): Boolean {
+        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        return prefs.getBoolean("is_first_run", true)
+    }
 
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(navController.graph)
-        setupActionBarWithNavController(navController, appBarConfiguration)
+    private fun markFirstRunCompleted() {
+        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        prefs.edit().putBoolean("is_first_run", false).apply()
+    }
 
-        binding.fab.setOnClickListener { view ->
-            val navController = findNavController(R.id.nav_host_fragment_content_main)
-            if (navController.currentDestination?.id == R.id.FirstFragment) {
-                navController.navigate(R.id.action_FirstFragment_to_SecondFragment)
-            } else {
-                navController.navigate(R.id.action_SecondFragment_to_FirstFragment)
+    private fun parseExistingSmsMessages() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
+            Log.d("MainActivity", "SMS read permission not granted")
+            return
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val smsMessages = readSmsMessages()
+                val application = applicationContext as PaymentsApplication
+                val smsRepository = application.smsRepository
+                val database = application.database
+                val parsingService = SmsParsingService(database)
+                
+                var processedCount = 0
+                var paymentCount = 0
+                
+                for (sms in smsMessages) {
+                    // SMS 메시지를 데이터베이스에 저장
+                    smsRepository.insert(sms)
+                    
+                    // 카드 결제 관련 SMS인지 확인하고 파싱
+                    if (sms.messageBody.contains("카드")) {
+                        parsingService.parsePaymentSms(sms.messageBody) { result ->
+                            if (result != null) {
+                                paymentCount++
+                                Log.d("MainActivity", "Payment parsed from existing SMS: ${result.cardName} - ${result.amount}원")
+                            }
+                        }
+                    }
+                    processedCount++
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Log.i("MainActivity", "Processed $processedCount existing SMS messages, found $paymentCount payments")
+                }
+                
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error parsing existing SMS messages", e)
             }
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        return when (item.itemId) {
-            R.id.action_settings -> {
-                val intent = Intent(this, SettingsActivity::class.java)
-                startActivity(intent)
-                true
+    private fun readSmsMessages(): List<SmsMessage> {
+        val smsMessages = mutableListOf<SmsMessage>()
+        val uri: Uri = Uri.parse("content://sms/inbox")
+        val projection = arrayOf("address", "body", "date")
+        
+        try {
+            val cursor: Cursor? = contentResolver.query(uri, projection, null, null, "date DESC LIMIT 1000")
+            cursor?.use {
+                val addressIndex = it.getColumnIndexOrThrow("address")
+                val bodyIndex = it.getColumnIndexOrThrow("body")
+                val dateIndex = it.getColumnIndexOrThrow("date")
+                
+                while (it.moveToNext()) {
+                    val sender = it.getString(addressIndex) ?: ""
+                    val body = it.getString(bodyIndex) ?: ""
+                    val date = Date(it.getLong(dateIndex))
+                    
+                    // 카드 관련 SMS만 필터링 (성능 최적화)
+                    if (body.contains("카드") && (body.contains("결제") || body.contains("승인") || body.contains("사용"))) {
+                        smsMessages.add(
+                            SmsMessage(
+                                sender = sender,
+                                messageBody = body,
+                                receivedDate = date,
+                                isProcessed = false
+                            )
+                        )
+                    }
+                }
             }
-            else -> super.onOptionsItemSelected(item)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error reading SMS messages", e)
         }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        return navController.navigateUp(appBarConfiguration)
-                || super.onSupportNavigateUp()
+        
+        return smsMessages
     }
 }

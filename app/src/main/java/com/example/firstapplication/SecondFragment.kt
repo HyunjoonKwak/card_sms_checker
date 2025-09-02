@@ -9,7 +9,7 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.firstapplication.databinding.FragmentSecondBinding
-import com.google.android.material.snackbar.Snackbar
+import android.widget.Toast
 
 /**
  * SMS 기록을 보여주는 Fragment
@@ -48,7 +48,7 @@ class SecondFragment : Fragment() {
 
         binding.buttonClearSms.setOnClickListener {
             smsViewModel.deleteAll()
-            Snackbar.make(view, "SMS 기록이 삭제되었습니다", Snackbar.LENGTH_SHORT).show()
+            Toast.makeText(context, "SMS 기록이 삭제되었습니다", Toast.LENGTH_SHORT).show()
         }
     }
 

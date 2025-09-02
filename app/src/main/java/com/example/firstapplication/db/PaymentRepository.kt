@@ -42,4 +42,12 @@ class PaymentRepository(
     suspend fun getCardBillingCycleTotal(cardName: String, startDate: Long, endDate: Long): Double? {
         return paymentDao.getCardBillingCycleTotal(cardName, startDate, endDate)
     }
+
+    suspend fun getCurrentMonthPayments(yearMonth: String, limit: Int, offset: Int): List<CardPayment> {
+        return paymentDao.getCurrentMonthPayments(yearMonth, limit, offset)
+    }
+
+    suspend fun getCurrentMonthPaymentCount(yearMonth: String): Int {
+        return paymentDao.getCurrentMonthPaymentCount(yearMonth)
+    }
 }

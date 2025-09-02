@@ -26,12 +26,21 @@ class PaymentListAdapter : ListAdapter<CardPayment, PaymentListAdapter.PaymentVi
         private val cardNameItemView: TextView = itemView.findViewById(R.id.textview_card_name)
         private val amountItemView: TextView = itemView.findViewById(R.id.textview_amount)
         private val dateItemView: TextView = itemView.findViewById(R.id.textview_payment_date)
+        private val merchantItemView: TextView = itemView.findViewById(R.id.textview_merchant)
 
         fun bind(payment: CardPayment) {
             cardNameItemView.text = payment.cardName
             amountItemView.text = String.format("%,d원", payment.amount.toInt())
             val sdf = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
             dateItemView.text = sdf.format(payment.paymentDate)
+            
+            // 가맹점명이 있으면 표시, 없으면 숨김
+            if (payment.merchant.isNotEmpty()) {
+                merchantItemView.text = payment.merchant
+                merchantItemView.visibility = View.VISIBLE
+            } else {
+                merchantItemView.visibility = View.GONE
+            }
         }
 
         companion object {

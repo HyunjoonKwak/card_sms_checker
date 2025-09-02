@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_margin="4dp"
     app:cardCornerRadius="8dp"
-    app:cardElevation="4dp">
+    app:cardElevation="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -21,43 +21,39 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/textview_card_name"
+                android:id="@+id/textview_pattern_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="삼성카드"
-                android:textSize="18sp"
+                android:text="신한카드"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/black" />
 
             <TextView
-                android:id="@+id/textview_payment_date"
+                android:id="@+id/textview_pattern_description"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="01/09 14:30"
-                android:textSize="14sp"
-                android:textColor="@android:color/darker_gray" />
-
-            <TextView
-                android:id="@+id/textview_merchant"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="스타벅스 강남점"
+                android:layout_marginTop="4dp"
+                android:text="사용자 추가 패턴"
                 android:textSize="12sp"
-                android:textColor="@color/primaryColor"
-                android:visibility="gone" />
+                android:textColor="@android:color/darker_gray" />
 
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/textview_amount"
+        <Button
+            android:id="@+id/button_delete_pattern"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="25,000원"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="#E53935" />
+            android:text="삭제"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:background="@drawable/delete_button_background"
+            android:textColor="@android:color/white" />
 
     </LinearLayout>
 

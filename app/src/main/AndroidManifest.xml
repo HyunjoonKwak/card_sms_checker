@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
@@ -36,6 +37,24 @@
 
         <activity
             android:name=".BillingCycleActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FirstApplication"
+            android:parentActivityName=".SettingsActivity" />
+
+        <activity
+            android:name=".PatternListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FirstApplication"
+            android:parentActivityName=".SettingsActivity" />
+
+        <activity
+            android:name=".PatternDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FirstApplication"
+            android:parentActivityName=".PatternListActivity" />
+
+        <activity
+            android:name=".CardListActivity"
             android:exported="false"
             android:theme="@style/Theme.FirstApplication"
             android:parentActivityName=".SettingsActivity" />

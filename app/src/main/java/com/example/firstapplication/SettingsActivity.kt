@@ -6,20 +6,21 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.firstapplication.databinding.ActivitySettingsBinding
 import com.example.firstapplication.db.SmsPattern
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : ComponentActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
-    private lateinit var patternAdapter: PatternAdapter
     private lateinit var settingsViewModel: SettingsViewModel
 
     private val createDocumentLauncher = registerForActivityResult(
@@ -33,8 +34,10 @@ class SettingsActivity : AppCompatActivity() {
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "설정"
+        // Setup back button
+        binding.buttonBack.setOnClickListener {
+            finish()
+        }
 
         val repository = (application as PaymentsApplication).repository
         val smsRepository = (application as PaymentsApplication).smsRepository
@@ -45,80 +48,111 @@ class SettingsActivity : AppCompatActivity() {
             SettingsViewModelFactory(repository, smsRepository, database.smsPatternDao())
         )[SettingsViewModel::class.java]
 
-        setupRecyclerView()
         setupButtons()
-        observeData()
-        loadDefaultPatterns()
     }
 
-    private fun setupRecyclerView() {
-        patternAdapter = PatternAdapter { pattern ->
-            showEditPatternDialog(pattern)
-        }
-        binding.recyclerviewPatterns.adapter = patternAdapter
-        binding.recyclerviewPatterns.layoutManager = LinearLayoutManager(this)
-    }
 
     private fun setupButtons() {
         binding.buttonAddPattern.setOnClickListener {
-            showAddPatternDialog()
+            addSimplePattern()
+        }
+
+        binding.buttonViewPatterns.setOnClickListener {
+            val intent = Intent(this, PatternListActivity::class.java)
+            startActivity(intent)
+        }
+
+        binding.buttonSaveCard.setOnClickListener {
+            saveCardInformation()
+        }
+
+        binding.buttonViewCards.setOnClickListener {
+            val intent = Intent(this, CardListActivity::class.java)
+            startActivity(intent)
         }
 
         binding.buttonExportData.setOnClickListener {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             createDocumentLauncher.launch("payment_data_$timestamp.csv")
         }
+    }
 
-        binding.buttonBillingCycles.setOnClickListener {
-            startActivity(Intent(this, BillingCycleActivity::class.java))
+    private fun addSimplePattern() {
+        val patternText = binding.edittextPattern.text.toString().trim()
+        if (patternText.isEmpty()) {
+            Toast.makeText(this, "패턴을 입력해주세요", Toast.LENGTH_SHORT).show()
+            return
         }
+
+        val newPattern = SmsPattern(
+            name = patternText,
+            cardNamePattern = patternText,
+            amountPattern = "\\d{1,3}(,\\d{3})*원",
+            description = "사용자 추가 패턴"
+        )
+        
+        settingsViewModel.insert(newPattern)
+        binding.edittextPattern.text.clear()
+        Toast.makeText(this, "패턴이 추가되었습니다", Toast.LENGTH_SHORT).show()
     }
 
-    private fun observeData() {
-        settingsViewModel.allPatterns.observe(this) { patterns ->
-            patterns?.let { patternAdapter.submitList(it) }
+    private fun saveCardInformation() {
+        val cardName = binding.edittextCardName.text.toString().trim()
+        val bankName = binding.edittextBankName.text.toString().trim()
+        val billingDayText = binding.edittextBillingDay.text.toString().trim()
+        val cutoffDayText = binding.edittextCutoffDay.text.toString().trim()
+
+        if (cardName.isEmpty()) {
+            Toast.makeText(this, "카드명을 입력해주세요", Toast.LENGTH_SHORT).show()
+            return
         }
-    }
 
-    private fun loadDefaultPatterns() {
-        settingsViewModel.addDefaultPatternsIfEmpty()
-    }
+        val billingDay = billingDayText.toIntOrNull()
+        val cutoffDay = cutoffDayText.toIntOrNull()
 
-    private fun showAddPatternDialog() {
-        showPatternDialog(null)
-    }
+        if (billingDay == null || billingDay < 1 || billingDay > 31) {
+            Toast.makeText(this, "올바른 결제일을 입력해주세요 (1-31)", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-    private fun showEditPatternDialog(pattern: SmsPattern) {
-        showPatternDialog(pattern)
-    }
+        if (cutoffDay == null || cutoffDay < 1 || cutoffDay > 31) {
+            Toast.makeText(this, "올바른 마감일을 입력해주세요 (1-31)", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-    private fun showPatternDialog(existingPattern: SmsPattern?) {
-        val dialog = PatternEditDialog(this) { name, cardPattern, amountPattern, description ->
-            if (existingPattern != null) {
-                val updatedPattern = existingPattern.copy(
-                    name = name,
-                    cardNamePattern = cardPattern,
-                    amountPattern = amountPattern,
-                    description = description
-                )
-                settingsViewModel.update(updatedPattern)
-            } else {
-                val newPattern = SmsPattern(
-                    name = name,
-                    cardNamePattern = cardPattern,
-                    amountPattern = amountPattern,
-                    description = description
-                )
-                settingsViewModel.insert(newPattern)
+        val billingCycle = com.example.firstapplication.db.CardBillingCycle(
+            cardName = cardName,
+            bankName = if (bankName.isNotEmpty()) bankName else "미지정",
+            billingDay = billingDay,
+            cutoffDay = cutoffDay,
+            isActive = true
+        )
+
+        // Save billing cycle
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val database = (application as PaymentsApplication).database
+                database.cardBillingCycleDao().insert(billingCycle)
+                
+                runOnUiThread {
+                    Toast.makeText(this@SettingsActivity, "카드 정보가 저장되었습니다", Toast.LENGTH_SHORT).show()
+                    clearCardFields()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@SettingsActivity, "저장 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+                }
             }
         }
-        
-        if (existingPattern != null) {
-            dialog.setPattern(existingPattern)
-        }
-        
-        dialog.show()
     }
+
+    private fun clearCardFields() {
+        binding.edittextCardName.text.clear()
+        binding.edittextBankName.text.clear()
+        binding.edittextBillingDay.text.clear()
+        binding.edittextCutoffDay.text.clear()
+    }
+
 
     private fun exportData(uri: Uri) {
         settingsViewModel.exportToCSV(uri, contentResolver) { success ->
@@ -132,8 +166,4 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    override fun onSupportNavigateUp(): Boolean {
-        onBackPressed()
-        return true
-    }
 }
