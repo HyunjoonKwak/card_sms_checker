@@ -240,17 +240,25 @@ class FirstFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 val calendar = Calendar.getInstance()
-                val yearMonth = String.format("%04d-%02d", 
-                    calendar.get(Calendar.YEAR), 
-                    calendar.get(Calendar.MONTH) + 1)
-                
                 val repository = (activity?.application as PaymentsApplication).repository
-                val allPayments = repository.allPayments.value ?: emptyList()
+                
+                // PaymentDao를 직접 사용하여 모든 결제 내역을 가져옴
+                val database = (activity?.application as PaymentsApplication).database
+                val allPayments = database.paymentDao().getAllPaymentsList()
+                
+                Log.d("FirstFragment", "loadPaymentSummary: allPayments.size=${allPayments.size}")
                 
                 val yearMonthFormat = SimpleDateFormat("yyyy-MM", Locale.getDefault())
                 val yearFormat = SimpleDateFormat("yyyy", Locale.getDefault())
                 val currentYearMonth = yearMonthFormat.format(calendar.time)
                 val currentYear = yearFormat.format(calendar.time)
+
+                Log.d("FirstFragment", "loadPaymentSummary: currentYearMonth=$currentYearMonth, currentYear=$currentYear")
+                allPayments.forEach { payment ->
+                    val paymentYearMonth = yearMonthFormat.format(payment.paymentDate)
+                    val paymentYear = yearFormat.format(payment.paymentDate)
+                    Log.d("FirstFragment", "Payment: ${payment.cardName} - ${payment.amount}원, paymentDate=${payment.paymentDate}, yearMonth=$paymentYearMonth, year=$paymentYear")
+                }
 
                 val monthTotal = allPayments.filter { payment ->
                     yearMonthFormat.format(payment.paymentDate) == currentYearMonth
@@ -259,6 +267,8 @@ class FirstFragment : Fragment() {
                 val yearTotal = allPayments.filter { payment ->
                     yearFormat.format(payment.paymentDate) == currentYear
                 }.sumOf { payment -> payment.amount }
+                
+                Log.d("FirstFragment", "monthTotal=$monthTotal, yearTotal=$yearTotal")
 
                 val currentMonthText = SimpleDateFormat("M월", Locale.KOREA).format(calendar.time)
                 val currentYearText = SimpleDateFormat("yyyy년", Locale.KOREA).format(calendar.time)
@@ -267,7 +277,7 @@ class FirstFragment : Fragment() {
                 binding.textviewYearTotal.text = String.format("%s 총 결제: %,d원", currentYearText, yearTotal.toInt())
                 
             } catch (e: Exception) {
-                // 에러 처리
+                Log.e("FirstFragment", "Error in loadPaymentSummary", e)
             }
         }
     }

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="76dp"
+    android:viewportWidth="120"
+    android:viewportHeight="76">
+    
+    <!-- 카드 배경 -->
+    <path
+        android:fillColor="#4A90E2"
+        android:pathData="M8,0 L112,0 Q120,0 120,8 L120,68 Q120,76 112,76 L8,76 Q0,76 0,68 L0,8 Q0,0 8,0 Z"/>
+    
+    <!-- 카드 그라데이션 효과 -->
+    <path
+        android:fillColor="#5BA0F2"
+        android:pathData="M8,0 L112,0 Q120,0 120,8 L120,25 L0,25 L0,8 Q0,0 8,0 Z"/>
+    
+    <!-- 마그네틱 스트라이프 -->
+    <path
+        android:fillColor="#2E3A45"
+        android:pathData="M0,30 L120,30 L120,42 L0,42 Z"/>
+    
+    <!-- 칩 -->
+    <path
+        android:fillColor="#FFD700"
+        android:strokeColor="#E6C200"
+        android:strokeWidth="1"
+        android:pathData="M12,48 L28,48 Q30,48 30,50 L30,62 Q30,64 28,64 L12,64 Q10,64 10,62 L10,50 Q10,48 12,48 Z"/>
+    
+    <!-- 칩 라인들 -->
+    <path
+        android:strokeColor="#B8A600"
+        android:strokeWidth="0.5"
+        android:pathData="M13,50 L27,50 M13,52 L27,52 M13,54 L27,54 M13,56 L27,56 M13,58 L27,58 M13,60 L27,60 M13,62 L27,62"/>
+    
+    <!-- 카드 번호 표시 (점선) -->
+    <path
+        android:fillColor="#E8F4FD"
+        android:pathData="M40,52 L42,52 L42,54 L40,54 Z M46,52 L48,52 L48,54 L46,54 Z M52,52 L54,52 L54,54 L52,54 Z M58,52 L60,52 L60,54 L58,54 Z"/>
+    
+    <path
+        android:fillColor="#E8F4FD"
+        android:pathData="M66,52 L68,52 L68,54 L66,54 Z M72,52 L74,52 L74,54 L72,54 Z M78,52 L80,52 L80,54 L78,54 Z M84,52 L86,52 L86,54 L84,54 Z"/>
+    
+    <path
+        android:fillColor="#E8F4FD"
+        android:pathData="M92,52 L94,52 L94,54 L92,54 Z M98,52 L100,52 L100,54 L98,54 Z M104,52 L106,52 L106,54 L104,54 Z M110,52 L112,52 L112,54 L110,54 Z"/>
+    
+    <!-- 브랜드 로고 영역 (오른쪽 상단) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,7 A8,8 0 1,1 100,23 A8,8 0 1,1 100,7 Z"/>
+    
+    <path
+        android:fillColor="#FF6B6B"
+        android:pathData="M96,9 A6,6 0 1,1 96,21 A6,6 0 1,1 96,9 Z"/>
+    
+    <path
+        android:fillColor="#4ECDC4"
+        android:pathData="M104,9 A6,6 0 1,1 104,21 A6,6 0 1,1 104,9 Z"/>
+    
+</vector>

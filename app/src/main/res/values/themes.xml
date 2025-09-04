@@ -1,9 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.FirstApplication" parent="Base.Theme.FirstApplication">
-    </style>
-
-    <style name="Base.Theme.FirstApplication" parent="Theme.AppCompat.DayNight.DarkActionBar">
+    <style name="Theme.FirstApplication" parent="Theme.AppCompat.DayNight.DarkActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/primaryColor</item>
         <item name="colorPrimaryDark">@color/primaryDarkColor</item>

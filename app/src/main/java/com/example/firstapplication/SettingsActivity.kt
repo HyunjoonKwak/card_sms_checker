@@ -32,10 +32,40 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var settingsViewModel: SettingsViewModel
     private lateinit var smsPermissionLauncher: ActivityResultLauncher<String>
 
-    private val createDocumentLauncher = registerForActivityResult(
+    private val createCsvLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
-        uri?.let { exportData(it) }
+        uri?.let { exportData(it, "CSV") }
+    }
+    
+    private val createJsonLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { exportData(it, "JSON") }
+    }
+    
+    private val createTxtLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        uri?.let { exportData(it, "TXT") }
+    }
+    
+    private val createExcelLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    ) { uri ->
+        uri?.let { exportData(it, "EXCEL") }
+    }
+    
+    private val createPdfLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        uri?.let { exportData(it, "PDF") }
+    }
+    
+    private val createMdLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        uri?.let { exportData(it, "MD") }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,13 +123,15 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.buttonExportData.setOnClickListener {
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            createDocumentLauncher.launch("payment_data_$timestamp.csv")
+            showFileFormatSelectionDialog()
         }
         
         binding.buttonReparseSms.setOnClickListener {
             clearTestDataAndReparseSms()
         }
+        
+        // 패턴 최적화 - 46개를 5개로 줄임
+        settingsViewModel.resetPatternsToOptimizedSet()
     }
 
     private fun addSimplePattern() {
@@ -179,11 +211,39 @@ class SettingsActivity : AppCompatActivity() {
     }
 
 
-    private fun exportData(uri: Uri) {
-        settingsViewModel.exportToCSV(uri, contentResolver) { success ->
+    private fun showFileFormatSelectionDialog() {
+        val formats = arrayOf("CSV", "JSON", "TXT", "Excel (XLSX)", "PDF", "Markdown (MD)")
+        val descriptions = arrayOf(
+            "엑셀에서 열기 가능한 표 형태",
+            "개발용 데이터 형식",
+            "간단한 텍스트 파일",
+            "마이크로소프트 엑셀 파일",
+            "인쇄용 PDF 문서",
+            "GitHub 스타일 마크다운 문서"
+        )
+        
+        AlertDialog.Builder(this)
+            .setTitle("내보낼 파일 형식 선택")
+            .setItems(formats) { _, which ->
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                when (which) {
+                    0 -> createCsvLauncher.launch("payment_data_$timestamp.csv")
+                    1 -> createJsonLauncher.launch("payment_data_$timestamp.json")
+                    2 -> createTxtLauncher.launch("payment_data_$timestamp.txt")
+                    3 -> createExcelLauncher.launch("payment_data_$timestamp.xlsx")
+                    4 -> createPdfLauncher.launch("payment_data_$timestamp.pdf")
+                    5 -> createMdLauncher.launch("payment_data_$timestamp.md")
+                }
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun exportData(uri: Uri, format: String) {
+        settingsViewModel.exportToFile(uri, contentResolver, format) { success ->
             runOnUiThread {
                 if (success) {
-                    Toast.makeText(this, "데이터가 성공적으로 내보내졌습니다", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "$format 파일이 성공적으로 내보내졌습니다", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this, "내보내기 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
                 }

@@ -26,6 +26,20 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
+        // 액션바 제목 가운데 정렬
+        supportActionBar?.let { actionBar ->
+            actionBar.setDisplayShowTitleEnabled(false)
+            actionBar.setDisplayShowCustomEnabled(true)
+            
+            val customView = layoutInflater.inflate(R.layout.action_bar_title, null)
+            val params = androidx.appcompat.app.ActionBar.LayoutParams(
+                androidx.appcompat.app.ActionBar.LayoutParams.MATCH_PARENT,
+                androidx.appcompat.app.ActionBar.LayoutParams.MATCH_PARENT
+            )
+            params.gravity = android.view.Gravity.CENTER
+            actionBar.setCustomView(customView, params)
+        }
+        
         // 첫 실행 시 기존 SMS 파싱
         Log.d("MainActivity", "First run check: ${isFirstRun()}")
         if (isFirstRun()) {

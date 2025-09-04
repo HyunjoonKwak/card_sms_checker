@@ -14,6 +14,9 @@ interface PaymentDao {
     @Query("SELECT * FROM card_payments ORDER BY paymentDate DESC")
     fun getAllPayments(): LiveData<List<CardPayment>>
 
+    @Query("SELECT * FROM card_payments ORDER BY paymentDate DESC")
+    suspend fun getAllPaymentsList(): List<CardPayment>
+
     @Query("""
         SELECT * FROM card_payments 
         WHERE strftime('%Y-%m', paymentDate / 1000, 'unixepoch') = :yearMonth

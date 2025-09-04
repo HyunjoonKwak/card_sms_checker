@@ -8,6 +8,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="600dp"
         android:orientation="vertical"
         android:padding="16dp">
 
@@ -49,6 +50,17 @@
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+
+        <!-- Credit Card Image -->
+        <ImageView
+            android:layout_width="200dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center_horizontal"
+            android:src="@drawable/credit_card_image"
+            android:layout_marginBottom="24dp"
+            android:layout_marginTop="8dp"
+            android:scaleType="centerCrop"
+            android:contentDescription="신용카드 이미지" />
 
         <!-- Toggle Buttons -->
         <LinearLayout
@@ -149,14 +161,20 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- Spacer to push buttons to bottom -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
         <!-- Navigation Button -->
         <Button
             android:id="@+id/button_view_sms"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="SMS 내역 보기"
-            android:layout_marginTop="8dp" />
-
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp" />
 
         <!-- Settings Button -->
         <Button
@@ -164,7 +182,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="설정"
-            android:layout_marginTop="8dp" />
+            android:layout_marginBottom="16dp" />
 
     </LinearLayout>
 </ScrollView>

@@ -35,20 +35,29 @@ class SmsParsingService(private val database: AppDatabase) {
                 }
                 
                 val patterns = database.smsPatternDao().getActivePatterns()
+                
+                Log.d("SmsParsingService", "Found ${patterns.size} active patterns:")
+                patterns.forEach { pattern ->
+                    Log.d("SmsParsingService", "Pattern: ${pattern.name} - card: '${pattern.cardNamePattern}', amount: '${pattern.amountPattern}'")
+                }
+                
                 val result = parseWithPatterns(messageBody, patterns)
                 
                 if (result != null) {
                     // 카테고리 자동 분류
                     val categoryId = categorizePayment(result.merchant)
                     
+                    val paymentDate = extractPaymentDate(messageBody)
                     val payment = CardPayment(
                         cardName = result.cardName,
                         amount = result.amount,
                         merchant = result.merchant,
-                        paymentDate = Date(),
+                        paymentDate = paymentDate,
                         categoryId = categoryId,
                         isValidated = result.confidence > 0.8f
                     )
+                    
+                    Log.d("SmsParsingService", "Extracted payment date: $paymentDate from message: ${messageBody.take(100)}")
                     
                     database.paymentDao().insert(payment)
                     Log.d("SmsParsingService", "Payment saved with category: ${result.cardName} - ${result.amount}원 (${result.merchant})")
@@ -102,6 +111,81 @@ class SmsParsingService(private val database: AppDatabase) {
         }
         
         return bestResult
+    }
+
+    private fun extractPaymentDate(messageBody: String): Date {
+        // 다양한 날짜 패턴들을 시도
+        val datePatterns = listOf(
+            // (01/09 22:45) 형식
+            "\\((\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})\\)",
+            // (01/09) 형식
+            "\\((\\d{2})/(\\d{2})\\)",
+            // 01/09 22:45 형식 (괄호 없음)
+            "(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})",
+            // 01/09 형식 (괄호 없음)
+            "(\\d{2})/(\\d{2})",
+            // 2024년 12월 형식
+            "(\\d{4})년\\s*(\\d{1,2})월",
+            // 12월 형식
+            "(\\d{1,2})월"
+        )
+        
+        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        
+        for (patternStr in datePatterns) {
+            try {
+                val pattern = Pattern.compile(patternStr)
+                val matcher = pattern.matcher(messageBody)
+                if (matcher.find()) {
+                    val calendar = java.util.Calendar.getInstance()
+                    
+                    when {
+                        // (01/09 22:45) 또는 01/09 22:45 형식
+                        matcher.groupCount() >= 4 -> {
+                            val month = matcher.group(1)?.toIntOrNull() ?: continue
+                            val day = matcher.group(2)?.toIntOrNull() ?: continue
+                            val hour = matcher.group(3)?.toIntOrNull() ?: continue
+                            val minute = matcher.group(4)?.toIntOrNull() ?: continue
+                            
+                            calendar.set(currentYear, month - 1, day, hour, minute, 0)
+                        }
+                        // (01/09) 또는 01/09 형식
+                        matcher.groupCount() >= 2 && patternStr.contains("/(\\\\d{2})") -> {
+                            val month = matcher.group(1)?.toIntOrNull() ?: continue
+                            val day = matcher.group(2)?.toIntOrNull() ?: continue
+                            
+                            calendar.set(currentYear, month - 1, day, 12, 0, 0) // 기본 시간 12:00으로 설정
+                        }
+                        // 2024년 12월 형식
+                        patternStr.contains("년") -> {
+                            val year = matcher.group(1)?.toIntOrNull() ?: currentYear
+                            val month = matcher.group(2)?.toIntOrNull() ?: continue
+                            
+                            calendar.set(year, month - 1, 1, 12, 0, 0) // 해당 월의 1일로 설정
+                        }
+                        // 12월 형식
+                        else -> {
+                            val month = matcher.group(1)?.toIntOrNull() ?: continue
+                            calendar.set(currentYear, month - 1, 1, 12, 0, 0) // 해당 월의 1일로 설정
+                        }
+                    }
+                    
+                    // 미래 날짜면 작년으로 설정 (SMS는 과거 거래 내역이므로)
+                    if (calendar.timeInMillis > System.currentTimeMillis()) {
+                        calendar.add(java.util.Calendar.YEAR, -1)
+                    }
+                    
+                    Log.d("SmsParsingService", "Parsed date from '$patternStr': ${calendar.time}")
+                    return calendar.time
+                }
+            } catch (e: Exception) {
+                Log.w("SmsParsingService", "Date parsing failed for pattern: $patternStr", e)
+            }
+        }
+        
+        // 날짜를 추출할 수 없으면 현재 날짜 사용
+        Log.d("SmsParsingService", "Could not extract date, using current date")
+        return Date()
     }
 
     private fun extractMerchant(messageBody: String): String {
