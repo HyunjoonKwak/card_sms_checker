@@ -25,6 +25,9 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -130,8 +133,19 @@ class SettingsActivity : AppCompatActivity() {
             clearTestDataAndReparseSms()
         }
         
+        binding.buttonSaveWebhook.setOnClickListener {
+            saveDiscordWebhook()
+        }
+        
+        binding.buttonTestDiscord.setOnClickListener {
+            testDiscordMessage()
+        }
+        
         // 패턴 최적화 - 46개를 5개로 줄임
         settingsViewModel.resetPatternsToOptimizedSet()
+        
+        // 저장된 Discord Webhook URL 불러오기
+        loadDiscordWebhook()
     }
 
     private fun addSimplePattern() {
@@ -392,6 +406,212 @@ class SettingsActivity : AppCompatActivity() {
         
         Log.d("SettingsActivity", "Found ${smsMessages.size} SMS messages")
         return smsMessages
+    }
+
+    private fun loadDiscordWebhook() {
+        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val webhookUrl = prefs.getString("discord_webhook_url", "")
+        binding.edittextDiscordWebhook.setText(webhookUrl)
+    }
+
+    private fun saveDiscordWebhook() {
+        var webhookUrl = binding.edittextDiscordWebhook.text.toString().trim()
+        
+        if (webhookUrl.isEmpty()) {
+            Toast.makeText(this, "Webhook URL을 입력해주세요", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        Log.d("SettingsActivity", "Original webhook URL: $webhookUrl")
+        
+        // discordapp.com을 discord.com으로 자동 변환 (DNS 문제 해결)
+        if (webhookUrl.contains("discordapp.com")) {
+            webhookUrl = webhookUrl.replace("discordapp.com", "discord.com")
+            Log.d("SettingsActivity", "Converted URL to: $webhookUrl")
+            Toast.makeText(this, "URL을 discord.com으로 자동 변환했습니다", Toast.LENGTH_SHORT).show()
+            
+            // 변환된 URL을 화면에 표시
+            binding.edittextDiscordWebhook.setText(webhookUrl)
+        }
+        
+        Log.d("SettingsActivity", "Validating webhook URL: $webhookUrl")
+        
+        if (!webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
+            Log.e("SettingsActivity", "Invalid webhook URL format: $webhookUrl")
+            Toast.makeText(this, "올바른 Discord Webhook URL을 입력해주세요\n형식: https://discord.com/api/webhooks/...", Toast.LENGTH_LONG).show()
+            return
+        }
+        
+        // URL 길이 및 구성 요소 확인
+        val urlParts = webhookUrl.split("/")
+        if (urlParts.size < 7) {
+            Log.e("SettingsActivity", "Webhook URL missing parts: ${urlParts.size} parts found")
+            Toast.makeText(this, "Webhook URL이 불완전합니다. 전체 URL을 복사해주세요", Toast.LENGTH_LONG).show()
+            return
+        }
+        
+        Log.d("SettingsActivity", "Webhook URL validation passed")
+        
+        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        prefs.edit().putString("discord_webhook_url", webhookUrl).apply()
+        
+        Toast.makeText(this, "Discord Webhook URL이 저장되었습니다", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun testDiscordMessage() {
+        val webhookUrl = binding.edittextDiscordWebhook.text.toString().trim()
+        
+        if (webhookUrl.isEmpty()) {
+            Toast.makeText(this, "먼저 Webhook URL을 저장해주세요", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // 저장된 URL과 입력된 URL 비교 확인
+        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val savedUrl = prefs.getString("discord_webhook_url", "")
+        Log.d("SettingsActivity", "Input URL: $webhookUrl")
+        Log.d("SettingsActivity", "Saved URL: $savedUrl")
+        Log.d("SettingsActivity", "URLs match: ${webhookUrl == savedUrl}")
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val testMessage = createTestDiscordMessage()
+                val success = sendDiscordMessage(webhookUrl, testMessage)
+                
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        Toast.makeText(this@SettingsActivity, "테스트 메시지가 전송되었습니다! Discord를 확인해보세요", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this@SettingsActivity, "메시지 전송에 실패했습니다. Webhook URL을 확인해주세요", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    val errorMsg = when {
+                        e.message?.contains("timeout") == true -> "연결 시간 초과. 인터넷 연결을 확인해주세요."
+                        e.message?.contains("UnknownHost") == true -> "네트워크 연결을 확인해주세요."
+                        e.message?.contains("403") == true -> "Webhook URL이 올바르지 않거나 권한이 없습니다."
+                        e.message?.contains("404") == true -> "Webhook URL을 찾을 수 없습니다. URL을 다시 확인해주세요."
+                        else -> "오류가 발생했습니다: ${e.message}\n\n입력된 URL: $webhookUrl"
+                    }
+                    Toast.makeText(this@SettingsActivity, errorMsg, Toast.LENGTH_LONG).show()
+                }
+                Log.e("SettingsActivity", "Discord message error with URL: $webhookUrl", e)
+                Log.e("SettingsActivity", "Full error details: ${e.javaClass.simpleName}: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private suspend fun sendDiscordMessage(webhookUrl: String, message: String): Boolean {
+        return try {
+            Log.d("SettingsActivity", "Attempting to send Discord message to: $webhookUrl")
+            val url = URL(webhookUrl)
+            val connection = url.openConnection() as HttpURLConnection
+            
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            connection.setRequestProperty("User-Agent", "Smart-SMS-Classifier/1.0")
+            connection.doOutput = true
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+            
+            val jsonPayload = JSONObject().apply {
+                put("content", message)
+                put("username", "Smart SMS 분류기")
+            }
+            
+            Log.d("SettingsActivity", "Sending JSON payload: ${jsonPayload.toString()}")
+            
+            connection.outputStream.use { outputStream ->
+                outputStream.write(jsonPayload.toString().toByteArray(Charsets.UTF_8))
+                outputStream.flush()
+            }
+            
+            val responseCode = connection.responseCode
+            Log.d("SettingsActivity", "Discord response code: $responseCode")
+            
+            if (responseCode in 200..299) {
+                Log.d("SettingsActivity", "Discord message sent successfully")
+                true
+            } else {
+                // 에러 응답 내용 읽기
+                val errorResponse = try {
+                    connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details"
+                } catch (e: Exception) {
+                    "Unable to read error response"
+                }
+                Log.e("SettingsActivity", "Discord API error - Code: $responseCode, Response: $errorResponse")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("SettingsActivity", "Failed to send Discord message: ${e.message}", e)
+            false
+        }
+    }
+
+    private suspend fun createTestDiscordMessage(): String {
+        val dateFormat = SimpleDateFormat("yyyy년 MM월 dd일", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val currentDate = Date()
+        
+        return buildString {
+            appendLine("🧪 **테스트 메시지**")
+            appendLine()
+            appendLine("✅ Smart SMS 분류기 Discord 알림이 정상적으로 설정되었습니다!")
+            appendLine()
+            appendLine("📅 **테스트 일시:** ${dateFormat.format(currentDate)} ${timeFormat.format(currentDate)}")
+            appendLine()
+            appendLine("🔔 **앞으로 다음과 같은 알림을 받게 됩니다:**")
+            appendLine("• 월별 결제일 알림")
+            appendLine("• 결제 요약 정보")
+            appendLine("• 카드별 결제 내역")
+            appendLine()
+            appendLine("📱 Smart SMS 분류기")
+        }
+    }
+
+    private suspend fun createMonthlyReminderMessage(): String {
+        val dateFormat = SimpleDateFormat("yyyy년 MM월", Locale.getDefault())
+        val currentDate = Date()
+        
+        val database = (application as PaymentsApplication).database
+        val allPayments = database.paymentDao().getAllPaymentsList()
+        
+        return buildString {
+            appendLine("🏦 **월별 결제일 알림** - ${dateFormat.format(currentDate)}")
+            appendLine()
+            
+            // 결제 요약
+            if (allPayments.isNotEmpty()) {
+                val totalAmount = allPayments.sumOf { it.amount }
+                val totalCount = allPayments.size
+                
+                appendLine("💰 **이번 달 결제 내역:**")
+                appendLine("• 총 결제 건수: ${totalCount}건")
+                appendLine("• 총 결제 금액: ${String.format("%,d", totalAmount)}원")
+                appendLine()
+                
+                // 카드별 요약
+                val paymentsByCard = allPayments.groupBy { it.cardName }
+                if (paymentsByCard.size <= 5) { // 카드가 5개 이하일 때만 표시
+                    appendLine("📊 **카드별 요약:**")
+                    paymentsByCard.forEach { (cardName, payments) ->
+                        val cardTotal = payments.sumOf { it.amount }
+                        appendLine("• $cardName: ${String.format("%,d", cardTotal)}원 (${payments.size}건)")
+                    }
+                    appendLine()
+                }
+            } else {
+                appendLine("💰 **이번 달 결제 내역:**")
+                appendLine("• 아직 결제 내역이 없습니다.")
+                appendLine()
+            }
+            
+            appendLine("💡 **알림:** 결제일을 확인하고 계획적인 소비를 하세요!")
+            appendLine()
+            appendLine("📱 Smart SMS 분류기")
+        }
     }
 
 }
